@@ -17,11 +17,20 @@ app.add_middleware(
 )
 
 # ✅ PostgreSQL connection
-DATABASE_URL = os.getenv("DATABASE_URL")
+DATABASE_URL = os.getenv("DATABASE_PUBLIC_URL")
 
 def get_db_connection():
-    """Create a connection to the PostgreSQL database."""
-    return psycopg2.connect(DATABASE_URL)
+    """Create a connection to the PostgreSQL database using Railway URL."""
+    try:
+        if not DATABASE_URL:
+            raise Exception("DATABASE_URL not set in environment variables")
+
+        # ✅ Ensure the correct connection string
+        return psycopg2.connect(DATABASE_URL)
+
+    except Exception as e:
+        print(f"Failed to connect to database: {str(e)}")
+        raise
 
 # ✅ Pydantic model for JSON request body
 class Remark(BaseModel):
@@ -37,7 +46,7 @@ def submit_remark(remark: Remark):
         conn = get_db_connection()
         cur = conn.cursor()
 
-        # Insert the remark into PostgreSQL
+        # ✅ Insert the remark into PostgreSQL
         cur.execute(
             "INSERT INTO remarks (user_id, user_name, remark) VALUES (%s, %s, %s)",
             (remark.userId, remark.userName, remark.remark)
@@ -60,7 +69,7 @@ def get_remarks():
         conn = get_db_connection()
         cur = conn.cursor()
 
-        # Fetch all remarks
+        # ✅ Fetch all remarks
         cur.execute("SELECT user_id, user_name, remark FROM remarks ORDER BY id DESC")
         rows = cur.fetchall()
 
