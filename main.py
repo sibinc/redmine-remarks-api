@@ -51,6 +51,26 @@ async def submit_remark(request: Request):
 
     return {"message": "Remark submitted successfully"}
 
+@app.get("/get-remarks")
+def get_remarks():
+    conn = get_db_connection()
+    cursor = conn.execute("SELECT * FROM remarks")
+    rows = cursor.fetchall()
+    conn.close()
+
+    remarks = []
+    for row in rows:
+        remarks.append({
+            "id": row["id"],
+            "user_id": row["user_id"],
+            "user_name": row["user_name"],
+            "remark": row["remark"],
+            "timestamp": row["timestamp"]
+        })
+
+    return {"remarks": remarks}
+
+
 # Use Railway's PORT or default to 8000
 if __name__ == "__main__":
     import os
