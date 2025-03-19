@@ -2,6 +2,7 @@ from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware  # ✅ Import CORS middleware
 import psycopg2
 import os
+import uvicorn
 
 app = FastAPI()
 
@@ -51,4 +52,8 @@ def get_remarks():
     conn.close()
 
     return [{"userId": row[0], "userName": row[1], "remark": row[2]} for row in rows]
+
+# ✅ Start FastAPI server on port 8080
+if __name__ == "__main__":
+    uvicorn.run("main:app", host="0.0.0.0", port=8080, reload=True)
 
