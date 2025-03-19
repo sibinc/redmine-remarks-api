@@ -7,7 +7,7 @@ import uvicorn
 app = FastAPI()
 
 # Get PostgreSQL connection string from Railway environment variables
-DB_URL = os.getenv("DATABASE_URL")
+DB_URL = os.getenv("DATABASE_PUBLIC_URL")
 
 # Function to connect to PostgreSQL
 def get_db_connection():
