@@ -1,16 +1,17 @@
 from fastapi import FastAPI, Request
 from datetime import datetime
 import sqlite3
+import uvicorn
 
 app = FastAPI()
 
-# Connect to SQLite (local DB)
+# SQLite DB Connection
 def get_db_connection():
     conn = sqlite3.connect('remarks.db')
     conn.row_factory = sqlite3.Row
     return conn
 
-# Create table (on startup)
+# Create table on startup
 @app.on_event("startup")
 def startup():
     conn = get_db_connection()
@@ -40,7 +41,6 @@ async def submit_remark(request: Request):
 
     timestamp = datetime.now()
 
-    # Insert into SQLite
     conn = get_db_connection()
     conn.execute(
         "INSERT INTO remarks (user_id, user_name, remark, timestamp) VALUES (?, ?, ?, ?)",
@@ -50,3 +50,9 @@ async def submit_remark(request: Request):
     conn.close()
 
     return {"message": "Remark submitted successfully"}
+
+# Use Railway's PORT or default to 8000
+if __name__ == "__main__":
+    import os
+    port = int(os.getenv("PORT", 8000))  # Default to 8000
+    uvicorn.run("main:app", host="0.0.0.0", port=port)
