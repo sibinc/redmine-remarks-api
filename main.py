@@ -1,35 +1,43 @@
 from fastapi import FastAPI, Request
 from datetime import datetime
-import sqlite3
+import psycopg2
+import os
 import uvicorn
 
 app = FastAPI()
 
-# SQLite DB Connection
-def get_db_connection():
-    conn = sqlite3.connect('remarks.db')
-    conn.row_factory = sqlite3.Row
-    return conn
+# PostgreSQL connection from Railway environment variable
+DB_URL = os.getenv("DATABASE_URL")
 
-# Create table on startup
+# Create PostgreSQL connection
+def get_db_connection():
+    return psycopg2.connect(DB_URL)
+
 @app.on_event("startup")
 def startup():
+    """Create the remarks table if it doesn't exist."""
     conn = get_db_connection()
-    conn.execute('''
+    cursor = conn.cursor()
+    
+    # Create table for remarks
+    cursor.execute('''
     CREATE TABLE IF NOT EXISTS remarks (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id TEXT,
-        user_name TEXT,
-        remark TEXT,
-        timestamp TIMESTAMP
+        id SERIAL PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        user_name TEXT NOT NULL,
+        remark TEXT NOT NULL,
+        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
     ''')
+    
     conn.commit()
+    cursor.close()
     conn.close()
 
 # Submit Remark Endpoint
 @app.post("/submit-remark")
 async def submit_remark(request: Request):
+    """Submit a remark to PostgreSQL."""
     data = await request.json()
 
     user_id = data.get("userId")
@@ -39,40 +47,47 @@ async def submit_remark(request: Request):
     if not all([user_id, user_name, remark]):
         return {"error": "Missing fields"}
 
-    timestamp = datetime.now()
-
     conn = get_db_connection()
-    conn.execute(
-        "INSERT INTO remarks (user_id, user_name, remark, timestamp) VALUES (?, ?, ?, ?)",
-        (user_id, user_name, remark, timestamp)
+    cursor = conn.cursor()
+
+    # Insert data into PostgreSQL
+    cursor.execute(
+        "INSERT INTO remarks (user_id, user_name, remark) VALUES (%s, %s, %s)",
+        (user_id, user_name, remark)
     )
+
     conn.commit()
+    cursor.close()
     conn.close()
 
     return {"message": "Remark submitted successfully"}
 
+# Fetch All Remarks Endpoint
 @app.get("/get-remarks")
 def get_remarks():
+    """Fetch all remarks from PostgreSQL."""
     conn = get_db_connection()
-    cursor = conn.execute("SELECT * FROM remarks")
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT * FROM remarks")
     rows = cursor.fetchall()
-    conn.close()
 
     remarks = []
     for row in rows:
         remarks.append({
-            "id": row["id"],
-            "user_id": row["user_id"],
-            "user_name": row["user_name"],
-            "remark": row["remark"],
-            "timestamp": row["timestamp"]
+            "id": row[0],
+            "user_id": row[1],
+            "user_name": row[2],
+            "remark": row[3],
+            "timestamp": row[4]
         })
+
+    cursor.close()
+    conn.close()
 
     return {"remarks": remarks}
 
-
-# Use Railway's PORT or default to 8000
+# Start the server
 if __name__ == "__main__":
-    import os
-    port = int(os.getenv("PORT", 8080))  # Default to 8000
+    port = int(os.getenv("PORT", 8000))
     uvicorn.run("main:app", host="0.0.0.0", port=port)
