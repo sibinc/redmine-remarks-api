@@ -1,73 +1,54 @@
-from fastapi import FastAPI, Request
-from datetime import datetime
+from fastapi import FastAPI, Request, HTTPException
+from fastapi.middleware.cors import CORSMiddleware  # ✅ Import CORS middleware
 import psycopg2
 import os
-import uvicorn
 
 app = FastAPI()
 
-# Get PostgreSQL connection string from Railway environment variables
-DB_URL = os.getenv("DATABASE_PUBLIC_URL")
+# ✅ Enable CORS for Chrome Extension
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # You can restrict this to specific origins later
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-# Function to connect to PostgreSQL
+# PostgreSQL connection
+DATABASE_URL = os.getenv("DATABASE_URL")
+
 def get_db_connection():
-    return psycopg2.connect(DB_URL)
+    return psycopg2.connect(DATABASE_URL)
 
-# Submit Remark Endpoint
+# ✅ Submit Remark Endpoint
 @app.post("/submit-remark")
-async def submit_remark(request: Request):
-    """Submit a remark to PostgreSQL."""
-    data = await request.json()
-
-    user_id = data.get("userId")
-    user_name = data.get("userName")
-    remark = data.get("remark")
-
-    if not all([user_id, user_name, remark]):
-        return {"error": "Missing fields"}
-
+def submit_remark(userId: str, userName: str, remark: str):
     conn = get_db_connection()
-    cursor = conn.cursor()
-
-    # Insert data into PostgreSQL
-    cursor.execute(
-        "INSERT INTO remarks (user_id, user_name, remark) VALUES (%s, %s, %s)",
-        (user_id, user_name, remark)
+    cur = conn.cursor()
+    
+    # Insert remark into PostgreSQL
+    cur.execute(
+        "INSERT INTO remarks (user_id, user_name, remark) VALUES (%s, %s, %s)", 
+        (userId, userName, remark)
     )
-
+    
     conn.commit()
-    cursor.close()
+    cur.close()
     conn.close()
 
     return {"message": "Remark submitted successfully"}
 
-# Fetch All Remarks Endpoint
-@app.get("/get-remarks")
+# ✅ Fetch Remarks Endpoint
+@app.get("/remarks")
 def get_remarks():
-    """Fetch all remarks from PostgreSQL."""
     conn = get_db_connection()
-    cursor = conn.cursor()
-
-    cursor.execute("SELECT * FROM remarks")
-    rows = cursor.fetchall()
-
-    remarks = []
-    for row in rows:
-        remarks.append({
-            "id": row[0],
-            "user_id": row[1],
-            "user_name": row[2],
-            "remark": row[3],
-            "timestamp": row[4]
-        })
-
-    cursor.close()
+    cur = conn.cursor()
+    
+    cur.execute("SELECT user_id, user_name, remark FROM remarks ORDER BY id DESC")
+    rows = cur.fetchall()
+    
+    cur.close()
     conn.close()
 
-    return {"remarks": remarks}
-
-# Start the server
-if __name__ == "__main__":
-    port = int(os.getenv("PORT", 8000))
-    uvicorn.run("main:app", host="0.0.0.0", port=port)
+    return [{"userId": row[0], "userName": row[1], "remark": row[2]} for row in rows]
 
