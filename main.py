@@ -34,7 +34,7 @@ def get_db_connection():
 
 # ✅ Pydantic model for JSON request body
 class Remark(BaseModel):
-    userId: str
+    userId: Union[int, str] 
     userName: str
     remark: str
 
